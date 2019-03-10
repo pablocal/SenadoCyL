@@ -1,0 +1,404 @@
+---
+title: "Estimación senado CyL"
+output:
+  html_document:
+    df_print: paged
+---
+
+# Preparar datos
+
+Abrir ficheros y seleccionar los casos correspondientes a CyL: 
+
+```{r cargar datos}
+library(tidyverse)
+library(sjmisc)
+library(kableExtra)
+
+cis_dic <- foreign::read.spss("data/3234.sav", to.data.frame = T ) %>% 
+                  filter(CCAA == "Castilla y León")
+
+cis_ene <- foreign::read.spss("data/3238.sav", to.data.frame = T ) %>% 
+                  filter(CCAA == "Castilla y León")
+```
+
+Homologar los ficheros y combinarlos:
+
+```{r plan homologar datos}
+homo_datos <- data.frame(Diciembre = c("ESTU", "PROV", "TAMUNI", "P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8", "P901 a P903", "P901 a P903", "P901 a P903", "P901 a P903", "P1001 a P1003", "P1001 a P1003", "P1001 a P1003", "P1001 a P1003", "P11", "P11A", "P11B", "P11C", "RECUERDO", "ESTUDIOS", "ESTATUS", "CONDICION11", "VOTOSIMG", "P32", "P35", "P37", "P46 y P46a", "P43", "P44"),
+                         Enero = c("ESTU", "PROV", "TAMUNI", "P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8",  "P901 a P903", "P901 a P903", "P901 a P903", "P901 a P903", "P1001 a P1003", "P1001 a P1003", "P1001 a P1003", "P1001 a P1003", "P11","P11A", "P11B", "P11C", "RECUERDO", "ESTUDIOS", "ESTATUS", "CONDICION11", "VOTOSIMG", "P15", "P30", "P32", "P46 y P46a", "P43", "P44"),
+                         Nombre_var_homolog = c("estu", "prov", "tamuni", "sit_eco",
+"sit_eco_retro", "sit_eco_pros", "sit_eco_pers", "sit_eco_pers_pros", "sit_pol",  "sit_pol_retro", "sit_pol_pros", "prob_esp_paro", "prob_esp_corrup", "prob_esp_indep", "prob_esp_pensi", "prob_pers_paro", "prob_pers_corrup",
+"prob_pers_indep", "prob_pers_pensi", "valora_gob", "valora_gob_pp", "valora_gob_cs", "valora_gob_up", "recuerdo", "estud", "estatus", "act_eco", "voto", "valorac_*", "org_est", "ideo", "relig", "sexo", "edad"),
+  stringsAsFactors = F)
+
+kable(homo_datos) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+
+```
+
+
+
+```{r homologar datos}
+
+# 1. Renombrar
+
+## 1.1 CIS dic
+cis_dic <- rename(cis_dic, estu = ESTU, prov = PROV, tamuni = TAMUNI, sit_eco = P1, sit_eco_retro = P2, sit_eco_pros = P3, sit_eco_pers = P4, sit_eco_pers_pros = P5, sit_pol = P6, sit_pol_retro = P7, sit_pol_pros = P8, valora_gob = P11, valora_gob_pp = P11A, valora_gob_cs = P11B, valora_gob_up = P11C, recuerdo = RECUERDO, estud = ESTUDIOS, estatus = ESTATUS, act_eco = CONDICION11, voto = VOTOSIMG, ideo = P37, sexo = P43, edad = P44, org_est = P35, valorac_pabloC = P3201, valorac_pabloI = P3203, valorac_pedro = P3205, valorac_albert = P3204, valorac_albertoG = P3202)
+
+##1.2 CIS ene
+cis_ene <- rename(cis_ene, estu = ESTU, prov = PROV, tamuni = TAMUNI, sit_eco = P1, sit_eco_retro = P2, sit_eco_pros = P3, sit_eco_pers = P4, sit_eco_pers_pros = P5, sit_pol = P6, sit_pol_retro = P7, sit_pol_pros = P8, valora_gob = P11, valora_gob_pp = P11A, valora_gob_cs = P11B, valora_gob_up = P11C, recuerdo = RECUERDO, estud = ESTUDIOS, estatus = ESTATUS, act_eco = CONDICION11, voto = VOTOSIMG, ideo = P32, sexo = P43, edad = P44, org_est = P30, valorac_pabloC = P1505, valorac_pabloI = P1509, valorac_pedro = P1515, valorac_albert = P1514, valorac_albertoG = P1508)
+
+# 2. Vector de variables para seleccionar
+vars <- homo_datos$Nombre_var_homolog
+vars <- vars[-c(12:19, 29, 32)]
+vars <-  c(vars, "P46", "P46A", "P901", "P902", "P903", "P1001", "P1002", "P1003")
+vars
+
+# 3. Seleccionar las vars
+cis_dic <- cis_dic %>% select(vars, starts_with("valorac_")) 
+cis_ene <- cis_ene %>% select(vars, starts_with("valorac_")) 
+
+# 4. Combinar ficheros
+cis <- rbind(cis_dic, cis_ene)
+row.names(cis) <- rownames(cis)
+cis <- mutate(cis, id = rownames(cis))
+```
+
+Transoformar las variables y preparar perdidos. Variables con casos perdidos por debajo del 10% imputar moda; a partir del 10% crear categoría propia.
+
+```{r combinar ficheros}
+# sit_eco
+frq(cis$sit_eco)
+cis$sit_eco_mala <- recode(cis$sit_eco, "Mala" = 1, "Muy mala" = 1, .default = 0)
+table(cis$sit_eco, cis$sit_eco_mala)
+
+# sit_eco_retro
+frq(cis$sit_eco_retro)
+cis$sit_eco_retro <- recode(cis$sit_eco_retro, "N.S." = "Igual", "N.C." = "Igual", .default = levels(cis$sit_eco_retro))
+frq(cis$sit_eco_retro)
+
+# sit_eco_pros
+frq(cis$sit_eco_pros)
+cis$sit_eco_pros <- recode(cis$sit_eco_pros, "N.S." = "Igual", "N.C." = "Igual", .default = levels(cis$sit_eco_pros))
+frq(cis$sit_eco_pros)
+
+# sit_eco_pers
+frq(cis$sit_eco_pers)
+cis$sit_eco_pers_mala <- recode(cis$sit_eco_pers, "Mala" = 1, "Muy mala" = 1, .default = 0)
+table(cis$sit_eco_pers, cis$sit_eco_pers_mala)
+
+# sit_eco_pers_pros
+frq(cis$sit_eco_pers_pros)
+cis$sit_eco_pers_pros <- recode(cis$sit_eco_pers_pros, "N.S." = "Igual", "N.C." = "Igual", .default = levels(cis$sit_eco_pers_pros))
+frq(cis$sit_eco_pers_pros)
+
+# sit_pol
+frq(cis$sit_pol)
+cis$sit_pol_mala <- recode(cis$sit_pol, "Mala" = 1, "Muy mala" = 1, .default = 0)
+table(cis$sit_pol, cis$sit_pol_mala)
+
+# sit_pol_retro
+frq(cis$sit_pol_retro)
+cis$sit_pol_retro <- recode(cis$sit_pol_retro, "N.S." = "Igual", "N.C." = "Igual", .default = levels(cis$sit_pol_retro))
+frq(cis$sit_pol_retro)
+
+# sit_pol_pros
+frq(cis$sit_pol_pros)
+cis$sit_pol_pros <- recode(cis$sit_pol_pros, "N.S." = "Igual", "N.C." = "Igual", .default = levels(cis$sit_pol_pros))
+frq(cis$sit_pol_pros)
+
+# prob_esp_paro c("El paro", "Los problemas de índole económica", "Los problemas relacionados con la calidad del empleo")
+# prob_esp_corrup c("La corrupción y el fraude", "Los/as políticos/as en general, los partidos y la política", "El Gobierno y partidos o políticos/as concretos/as")
+# prob_esp_inmig "La inmigración"
+# prob_esp_pensi "Las pensiones"
+# prob_esp_indep "Independencia de Cataluña"
+
+levels(cis$P901)
+
+cis <- cis %>% mutate(prob_esp_paro = ifelse(P901 %in% c("El paro", "Los problemas de índole económica", "Los problemas relacionados con la calidad del empleo") | P902 %in% c("El paro", "Los problemas de índole económica", "Los problemas relacionados con la calidad del empleo")| P903 %in% c("El paro", "Los problemas de índole económica", "Los problemas relacionados con la calidad del empleo"), 1, 0),
+                      prob_esp_corrup = ifelse(P901 %in% c("La corrupción y el fraude", "Los/as políticos/as en general, los partidos y la política", "El Gobierno y partidos o políticos/as concretos/as") | P902 %in% c("La corrupción y el fraude", "Los/as políticos/as en general, los partidos y la política", "El Gobierno y partidos o políticos/as concretos/as") | P903 %in% c("La corrupción y el fraude", "Los/as políticos/as en general, los partidos y la política", "El Gobierno y partidos o políticos/as concretos/as"), 1, 0),
+                      prob_esp_inmig = ifelse(P901 == "La inmigración" | P902 == "La inmigración" | P903 == "La inmigración", 1, 0),
+                      prob_esp_pensi = ifelse(P901 == "Las pensiones" | P902 == "Las pensiones" | P903 == "Las pensiones", 1, 0),
+                      prob_esp_indep = ifelse(P901 == "Independencia de Cataluña" | P902 == "Independencia de Cataluña" | P903 == "Independencia de Cataluña", 1, 0),
+                      prob_pers_paro = ifelse(P1001 %in% c("El paro", "Los problemas de índole económica", "Los problemas relacionados con la calidad del empleo") | P1002 %in% c("El paro", "Los problemas de índole económica", "Los problemas relacionados con la calidad del empleo")| P1003 %in% c("El paro", "Los problemas de índole económica", "Los problemas relacionados con la calidad del empleo"), 1, 0),
+                      prob_pers_corrup = ifelse(P1001 %in% c("La corrupción y el fraude", "Los/as políticos/as en general, los partidos y la política", "El Gobierno y partidos o políticos/as concretos/as") | P1002 %in% c("La corrupción y el fraude", "Los/as políticos/as en general, los partidos y la política", "El Gobierno y partidos o políticos/as concretos/as") | P1003 %in% c("La corrupción y el fraude", "Los/as políticos/as en general, los partidos y la política", "El Gobierno y partidos o políticos/as concretos/as"), 1, 0),
+                      prob_pers_inmig = ifelse(P1001 == "La inmigración" | P1002 == "La inmigración" | P1003 == "La inmigración", 1, 0),
+                      prob_pers_pensi = ifelse(P1001 == "Las pensiones" | P1002 == "Las pensiones" | P1003 == "Las pensiones", 1, 0),
+                      prob_pers_indep = ifelse(P1001 == "Independencia de Cataluña" | P1002 == "Independencia de Cataluña" | P1003 == "Independencia de Cataluña", 1, 0))
+
+cis %>% select(starts_with("prob_")) %>% frq()
+
+# valora_gob
+frq(cis$valora_gob)
+cis$valora_gob_mala <- recode(cis$valora_gob, "Mala" = 1, "Muy mala" = 1, .default = 0)
+table(cis$valora_gob, cis$valora_gob_mala)
+
+# valora_gob_pp - valora_gob_cs
+frq(cis[,c("valora_gob_pp", "valora_gob_up", "valora_gob_cs")])
+cis$valora_gob_pp <- as_factor(recode(cis$valora_gob_pp, "N.S." = "Igual", "N.C." = "Igual", .default = levels(cis$valora_gob_pp)))
+cis$valora_gob_cs <- as_factor(recode(cis$valora_gob_cs, "N.S." = "NSNC", "N.C." = "NSNC", .default = levels(cis$valora_gob_cs)))
+cis <- cis %>% mutate(valora_gob_up = ifelse(valora_gob_up == "Peor", 1, 0))
+frq(cis[,c("valora_gob_pp", "valora_gob_up", "valora_gob_cs")])
+
+
+# recuerdo
+frq(cis$recuerdo)
+levels(cis$recuerdo)
+cis$recuerdo <- recode(cis$recuerdo, "PP" = "PP", "PSOE" = "PSOE", "Unidos Podemos" = "UP", "En Comú Podem" = "UP", "C's" = "Cs",  "No tenía edad" = "No voto", "No votó" = "No voto", "No recuerda" = NA_character_, "N.C." = NA_character_, .default = "Otros")
+
+# estudios
+frq(cis$estud)
+cis$estud <- recode(cis$estud, "Sin estudios" = "Primaria o menos", "Primaria" = "Primaria o menos", "Secundaria 1ª etapa" = "Secundaria", "Secundaria 2ª etapa" = "Secundaria", "F.P." = "FP", "Superiores" = "Superiores", "Otros" = "Primaria o menos", "N.C." = "Primaria o menos")
+
+# estatus
+frq(cis$estatus)
+cis$estatus <- recode(cis$estatus, "No consta" = "Viejas clases medias",  .default = levels(cis$estatus))
+
+# act_eco
+frq(cis$act_eco)
+cis <- mutate(cis, act_eco_pension = ifelse(act_eco == "Jubilados/as y pensionistas", 1, 0), 
+              act_eco_paro = ifelse(act_eco == "Parados/as", 1, 0),
+              act_eco_domes = ifelse(act_eco == "Trabajo doméstico no remunerado", 1, 0))
+cis %>% select(starts_with("act_eco_")) %>% frq()
+
+# voto
+frq(cis$voto)
+cis$voto <- recode(cis$voto, "N.C." = NA_character_, "N.S." = NA_character_, "PP" = "PP", "PSOE" = "PSOE", "Unidos Podemos" = "UP", "En Marea" = "UP", "Ciudadanos" = "Cs", "VOX" = "VOX", "Voto nulo" = NA_character_, "No votaría" = "No votaría", "En blanco" = NA_character_, .default = "Otros")
+
+# valorac_*
+cis %>% select(starts_with("valorac_")) %>% frq()
+
+levels(cis$valorac_pedro)
+vars <- colnames(select(cis, starts_with("valorac_")))
+mutate_valora <- function(x){
+                as_factor(case_when(x %in% c("0 Muy Mal", "1", "2", "3") ~ "0-3",
+                          x %in% c("4", "5", "6") ~ "4-6",
+                          x %in% c("7", "8", "9", "10 Muy bien") ~ "7-10",
+                          x %in% c("No conoce", "N.S.", "N.C.") ~ "No conoce"))
+}
+
+cis <- cis %>% mutate_at(.vars = vars, .funs = mutate_valora)
+
+# org_est
+frq(cis$org_est)
+levels(cis$org_est) <- c("Central", "Menos aut.", "Aut.", "Más aut.", "Indep.", "NS", "NC")
+cis$org_est <- recode(cis$org_est, "NS" = "Aut.", "NC" = "Aut.", "Indep." = "Más aut.", .default = levels(cis$org_est))
+
+# ideo
+frq(cis$ideo)
+cis$ideo <- recode(cis$ideo, "1 Izquierda" = "Izq", "2" = "Izq", "3" = "Izq",
+                   "10 Derecha" = "Der", "9" = "Der", "8" = "Der", "7" = "Der", "N.S." = "NC", "N.C." = "NC", "4" = "CentroI", "5" ="Centro" , "6" = "centroD")
+
+# relig
+cis %>% select(P46, P46A) %>% frq()
+levels(cis$P46)
+cis <- mutate(cis, relig = case_when(P46 %in% c("No creyente","Ateo/a") ~ "No cree",
+                                    P46A %in% c("Alguna vez al mes ", "Casi todos los domingos y festivos ", "Varias veces a la semana ") ~ "Cree y practica",
+                                    P46A %in% c("Casi nunca", "Varias veces al año ", "N.C.") | P46 == "N.C."  ~ "Cree y no practica"))
+
+frq(cis$relig)
+cis$relig <- as_factor(cis$relig)
+table(cis$P46, cis$relig)
+table(cis$P46A, cis$relig)
+
+# sexo
+frq(cis$sexo)
+
+# edad
+frq(cis$edad)
+cis$edad <- as.numeric(cis$edad)
+
+cis <- mutate(cis, edad_g = case_when(edad < 25 ~ "Menos de 25",
+                                      edad > 24 & edad < 35 ~ "25-34",
+                                      edad > 34 & edad < 50 ~ "35-49",
+                                      edad > 49 & edad < 65 ~ "50-64",
+                                      edad > 64 ~ "65 o más"))
+cis$edad_g <- as_factor(cis$edad_g)
+cis$edad_g <- fct_relevel(cis$edad_g, "Menos de 25", "25-34", "35-49", "50-64", "65 o más")
+table(cis$edad, cis$edad_g)
+
+# clean dataset
+cis <- select(cis, -act_eco, -edad, -P46, -P46A, -starts_with("P90"), -starts_with("P10"), -valora_gob)
+```
+
+
+Asignar pesos temporales, de forma que los datos de enero, al ser más recientes, tengan mayor importancia a la hora de hacer la estimación:
+
+```{r pesos temporales}
+frq(cis$estu)
+cis <- mutate(cis, peso_estu = case_when(estu == "3234" ~ .75,
+                                         estu == "3238" ~ 1.25))
+sum(cis$peso_estu) == nrow(cis)
+```
+
+## Imputaciones
+
+Ahora hay que imputar tanto el recuerdo como la intención de voto usando SVM. Empezamos por el recuerdo de voto.
+
+```{r RV SVM imputation}
+library(e1071)
+
+# Recuerdo de voto
+frq(cis$recuerdo)
+
+## Crear conjunto de entramiento y test
+set.seed(4564)
+
+### Conjunto de entrenamiento
+train_recuerdo <- cis %>% filter(!is.na(recuerdo)) %>% sample_frac(.7) %>% select(-estu, -peso_estu, -voto, -prov)
+train_recuerdo_id <- train_recuerdo$id
+train_recuerdo <- train_recuerdo %>% select(-id)
+
+### Resto es conjunto de test
+test_recuerdo <- cis %>% filter(!id %in% train_recuerdo_id) %>% select(-estu, -peso_estu, -voto, -prov)
+
+## CV para encontrar mejor modelo
+# tuned_parameters <- tune.svm(recuerdo ~ ., data = train_recuerdo, gamma = 10^(-6:-1) , cost = 10^(-4:1))
+summary(tuned_parameters)
+tuned_parameters$best.model
+
+## computar el SVM
+svm_recuerdo <- svm(recuerdo ~ ., data = train_recuerdo, 
+                    method = "C-classification", kernal = "radial", 
+                    gamma = .01, cost = 10)
+
+summary(svm_recuerdo)
+
+## predecir para el test
+prediction <- predict(svm_recuerdo, select(test_recuerdo, -recuerdo))
+xtab <- table(test_recuerdo$recuerdo, prediction)
+xtab
+
+## determinar eficacia clasificación
+(xtab[1,1] + xtab[2,2] + xtab[3,3] + xtab[4,4] + xtab[5,5] + xtab[6,6]) / sum(xtab) 
+
+## imputar predicción
+test_recuerdo <- cbind(test_recuerdo, prediction)
+recuerdo_pred <- test_recuerdo %>% filter(is.na(recuerdo)) %>% select(id, prediction) 
+cis <- left_join(cis, recuerdo_pred, by = "id")
+
+cis %>% select(recuerdo, prediction) %>% filter(is.na(recuerdo))
+cis <- cis %>% mutate(recuerdo = ifelse(is.na(recuerdo), prediction, recuerdo))
+cis$recuerdo <- factor(cis$recuerdo, labels =  levels(cis$prediction))
+cis <- select(cis, -prediction)
+frq(cis$recuerdo)
+```
+
+Ahora viene la intención de voto:
+
+```{r IV SVM imputacion}
+# Intención de voto de voto
+frq(cis$voto)
+
+## Crear conjunto de entramiento y test
+set.seed(2234)
+
+### Conjunto de entrenamiento
+train_iv <- cis %>% filter(!is.na(voto)) %>% sample_frac(.7) %>% select(-estu, -peso_estu, -prov, -recuerdo)
+train_iv_id <- train_iv$id
+train_iv <- train_iv %>% select(-id)
+
+### Resto es conjunto de test
+test_iv <- cis %>% filter(!id %in% train_iv_id) %>% select(-estu, -peso_estu, -prov, -recuerdo)
+
+
+## CV para encontrar mejor modelo
+tuned_parameters <- tune.svm(voto ~ ., data = train_iv, gamma = 10^(-6:-1), cost = 10^(-4:1))
+summary(tuned_parameters)
+tuned_parameters$best.model
+
+## computar el SVM
+svm_iv <- svm(voto ~ ., data = train_iv, 
+                    method = "C-classification", kernal = "radial", 
+                    gamma = .01, cost = 10)
+
+summary(svm_iv)
+
+## predecir para el test
+prediction <- predict(svm_iv, select(test_iv, -voto))
+xtab <- table(test_iv$voto, prediction)
+xtab
+
+## determinar eficacia clasificación
+(xtab[1,1] + xtab[2,2] + xtab[3,3] + xtab[4,4] + xtab[5,5] + xtab[6,6]) / sum(xtab) 
+
+## imputar predicción
+test_iv <- cbind(test_iv, prediction)
+iv_pred <- test_iv %>% filter(is.na(voto)) %>% select(id, prediction) 
+cis <- left_join(cis, iv_pred, by = "id")
+
+cis %>% select(voto, prediction) %>% filter(is.na(voto))
+cis <- cis %>% mutate(voto = ifelse(is.na(voto), prediction, voto))
+cis$voto <- factor(cis$voto, labels =  levels(cis$prediction))
+cis <- select(cis, -prediction)
+frq(cis$voto)
+
+```
+
+
+## Ponderaciones
+
+Se trata de crear provincias ficticias calibrando por grupos de sexo y edad, ditribución por tamuni y recuerdo de voto en 2016.
+
+```{r Ponderacion}
+# Datos admin 
+admin <- readRDS("D:/Rproj/adminData/data/admin.rds") %>% select(cprov, cmun, nmun, pop, starts_with("d1_"), starts_with("d2_"), starts_with("d3_"), starts_with("j13_")) %>%  filter(cprov %in% c(5, 9, 24, 34, 37, 40, 42, 47, 49))
+
+# Sexo*edad + RV 2016
+pop_totals <- admin %>% rowwise() %>%  mutate(H1824 = (d2_4/5)*2 + d2_5,
+                                              H2534 = sum(d2_6, d2_7),
+                                              H3549 = sum(d2_8, d2_9, d2_10),
+                                              H5064 = sum(d2_11, d2_12, d2_13),
+                                              H65 = sum(d2_14, d2_15, d2_16, d2_17,                                                              d2_18, d2_19, d2_20,d2_21),
+                                              M1824 = (d3_4/5)*2 + d3_5,
+                                              M2534 = sum(d3_6, d3_7),
+                                              M3549 = sum(d3_8, d3_9, d3_10),
+                                              M5064 = sum(d3_11, d3_12, d3_13),
+                                              M65 = sum(d3_14, d3_15, d3_16, d3_17,                                                              d3_18, d3_19, d3_20,d3_21),
+                                              PP = j13_9,
+                                              PSOE = j13_10,
+                                              UP =j13_11,
+                                              Cs = j13_12,
+                                              Otros = j13_4 - sum(j13_9, j13_10, j13_11, j13_12),
+                                              Novoto = j13_3 - j13_4,
+                                              censo = j13_3
+                                              ) %>% 
+  select(cprov, pop, starts_with("H"), starts_with("M"), PP, PSOE, UP, Cs, Otros, Novoto, censo) %>% 
+  group_by(cprov) %>% 
+  summarise_all(sum)
+
+## Tamuni
+frq(cis$tamuni)
+
+tamuni <- admin %>% rowwise() %>%  mutate(tamuni = case_when(pop <= 2000 ~ "Menos o igual a 2.000 habitantes",
+                                              pop > 2000 & pop <= 10000 ~"2.001 a 10.000 habitantes",
+                                              pop > 10000 & pop <= 50000 ~"10.001 a 50.000 habitantes",
+                                              pop > 50000  ~ "Más de 50.000 habitantes"),
+                           pop_val = sum((d1_4/5)*2, d1_5, d1_6, d1_7, d1_8, d1_9, d1_10, d1_11, d1_12, d1_13, d1_14, d1_15, d1_16, d1_17, d1_18, d1_19, d1_20, d1_21),
+                           pop_total = pop_val) %>% 
+  select(cprov, tamuni, pop_val, cmun, pop_total) %>% 
+  spread(key = tamuni, value = pop_val) %>% 
+  group_by(cprov) %>% 
+  summarise_all(sum, na.rm = T) %>% 
+  select(-cmun)
+
+pop_totals <- left_join(pop_totals, tamuni, by = "cprov")                                
+
+
+## Ponderar para cada provincia
+
+```
+
+## Participación
+
+```{r Participacion electoral}
+frq(cis$tamuni)
+#LASSO
+
+```
+
+
+
+## Coeficiente correción senado
+
+
