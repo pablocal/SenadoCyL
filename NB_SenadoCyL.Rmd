@@ -13,6 +13,7 @@ Abrir ficheros y seleccionar los casos correspondientes a CyL:
 library(tidyverse)
 library(sjmisc)
 library(kableExtra)
+source("source/source.R")
 
 cis_dic <- foreign::read.spss("data/3234.sav", to.data.frame = T ) %>% 
                   filter(CCAA == "Castilla y León")
@@ -170,13 +171,6 @@ cis %>% select(starts_with("valorac_")) %>% frq()
 
 levels(cis$valorac_pedro)
 vars <- colnames(select(cis, starts_with("valorac_")))
-mutate_valora <- function(x){
-                as_factor(case_when(x %in% c("0 Muy Mal", "1", "2", "3") ~ "0-3",
-                          x %in% c("4", "5", "6") ~ "4-6",
-                          x %in% c("7", "8", "9", "10 Muy bien") ~ "7-10",
-                          x %in% c("No conoce", "N.S.", "N.C.") ~ "No conoce"))
-}
-
 cis <- cis %>% mutate_at(.vars = vars, .funs = mutate_valora)
 
 # org_est
@@ -216,6 +210,10 @@ cis <- mutate(cis, edad_g = case_when(edad < 25 ~ "Menos de 25",
 cis$edad_g <- as_factor(cis$edad_g)
 cis$edad_g <- fct_relevel(cis$edad_g, "Menos de 25", "25-34", "35-49", "50-64", "65 o más")
 table(cis$edad, cis$edad_g)
+
+# tamuni
+frq(cis$tamuni)
+cis$tamuni <- recode(cis$tamuni, "50.001 a 100.000 habitantes" = "Más de 50.000 habitantes", "100.001 a 400.000 habitantes" = "Más de 50.000 habitantes", "400.001 a 1.000.000 habitantes" = NA_character_, "Más de 1.000.000 habitantes" = NA_character_, .default = levels(cis$tamuni))
 
 # clean dataset
 cis <- select(cis, -act_eco, -edad, -P46, -P46A, -starts_with("P90"), -starts_with("P10"), -valora_gob)
@@ -355,15 +353,16 @@ pop_totals <- admin %>% rowwise() %>%  mutate(H1824 = (d2_4/5)*2 + d2_5,
                                               M3549 = sum(d3_8, d3_9, d3_10),
                                               M5064 = sum(d3_11, d3_12, d3_13),
                                               M65 = sum(d3_14, d3_15, d3_16, d3_17,                                                              d3_18, d3_19, d3_20,d3_21),
-                                              PP = j13_9,
-                                              PSOE = j13_10,
-                                              UP =j13_11,
-                                              Cs = j13_12,
-                                              Otros = j13_4 - sum(j13_9, j13_10, j13_11, j13_12),
-                                              Novoto = j13_3 - j13_4,
-                                              censo = j13_3
+                                               pop_val = sum((d1_4/5)*2, d1_5, d1_6, d1_7, d1_8, d1_9, d1_10, d1_11, d1_12, d1_13, d1_14, d1_15, d1_16, d1_17, d1_18, d1_19, d1_20, d1_21),
+                                              
+                                              PP = (j13_9*pop_val)/j13_3,
+                                              PSOE = (j13_10*pop_val)/j13_3,
+                                              UP = (j13_11*pop_val)/j13_3,
+                                              Cs = (j13_12*pop_val)/j13_3,
+                                              Otros = ((j13_4 - sum(j13_9, j13_10, j13_11, j13_12))*pop_val)/j13_3,
+                                              Novoto = ((j13_3 - j13_4)*pop_val)/j13_3,
                                               ) %>% 
-  select(cprov, pop, starts_with("H"), starts_with("M"), PP, PSOE, UP, Cs, Otros, Novoto, censo) %>% 
+  select(cprov, pop, starts_with("H"), starts_with("M"), PP, PSOE, UP, Cs, Otros, Novoto) %>% 
   group_by(cprov) %>% 
   summarise_all(sum)
 
@@ -382,10 +381,49 @@ tamuni <- admin %>% rowwise() %>%  mutate(tamuni = case_when(pop <= 2000 ~ "Meno
   summarise_all(sum, na.rm = T) %>% 
   select(-cmun)
 
-pop_totals <- left_join(pop_totals, tamuni, by = "cprov")                                
+pop_totals <- left_join(pop_totals, tamuni, by = "cprov")   
 
+## sexo edad en muestra
+cis <- cis %>% mutate(sexo_edad =   case_when(edad_g == "Menos de 25" & sexo == "Hombre" ~ "H1824",
+                                                   edad_g == "25-34" & sexo == "Hombre" ~ "H2534",
+                                                   edad_g == "35-49" & sexo == "Hombre" ~ "H3549",
+                                                   edad_g == "50-64" & sexo == "Hombre" ~ "H5064",
+                                                   edad_g == "65 o más" & sexo == "Hombre" ~ "H65",
+                                                   edad_g == "Menos de 25" & sexo == "Mujer" ~ "M1824",
+                                                   edad_g == "25-34" & sexo == "Mujer" ~ "M2534",
+                                                   edad_g == "35-49" & sexo == "Mujer" ~ "M3549",
+                                                   edad_g == "50-64" & sexo == "Mujer" ~ "M5064",
+                                                   edad_g == "65 o más" & sexo == "Mujer" ~ "M65"))
+frq(cis$sexo_edad)
 
 ## Ponderar para cada provincia
+
+pop_total_burgos <- as.numeric(pop_totals[2,c(4:12, 14:18, 21, 20, 22)])
+pop_total_burgos <- c(sum(pop_totals[2,3:12]), pop_total_burgos)
+names <- c("(Intercept)", colnames(pop_totals[2,c(4:12, 14:18, 21, 20, 22)]))
+names(pop_total_burgos) <- names
+
+wt_burgos <- compute_mult_wt(auxvars = c("sexo_edad", "recuerdo", "tamuni"), svydata = cis, vector_calib_total = pop_total_burgos, svywt = "peso_estu")
+
+
+pop_total_burgos <- as.numeric(pop_totals[2,c(4:12, 21, 20, 22)])
+pop_total_burgos <- c(sum(pop_totals[2,3:12]), pop_total_burgos)
+names <- c("(Intercept)", colnames(pop_totals[2,c(4:12, 21, 20, 22)]))
+names(pop_total_burgos) <- names
+
+wt_burgos <- compute_mult_wt(auxvars = c("sexo_edad", "tamuni"), svydata = cis, vector_calib_total = pop_total_burgos, svywt = "peso_estu")
+
+
+
+peso_burgos2 <- weights(wt_burgos$svy_des_wt)
+cis <- cbind(cis, peso_burgos2)
+
+cis %>% frq(recuerdo)
+cis %>% frq(recuerdo, weights = peso_burgos)
+
+cis %>% frq(sexo_edad)
+cis %>% frq(voto, weights = peso_burgos2)
+
 
 ```
 
