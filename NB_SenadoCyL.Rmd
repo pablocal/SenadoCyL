@@ -398,31 +398,28 @@ frq(cis$sexo_edad)
 
 ## Ponderar para cada provincia
 
-pop_total_burgos <- as.numeric(pop_totals[2,c(4:12, 14:18, 21, 20, 22)])
-pop_total_burgos <- c(sum(pop_totals[2,3:12]), pop_total_burgos)
-names <- c("(Intercept)", colnames(pop_totals[2,c(4:12, 14:18, 21, 20, 22)]))
-names(pop_total_burgos) <- names
+pop_total_vall <- as.numeric(pop_totals[8,c(4:12, 14:18, 21, 20, 22)])
+pop_total_vall <- c(sum(pop_totals[8,3:12]), pop_total_vall)
+names <- c("(Intercept)", colnames(pop_totals[8,c(4:12, 14:18, 21, 20, 22)]))
+names(pop_total_vall) <- names
 
-wt_burgos <- compute_mult_wt(auxvars = c("sexo_edad", "recuerdo", "tamuni"), svydata = cis, vector_calib_total = pop_total_burgos, svywt = "peso_estu")
-
-
-pop_total_burgos <- as.numeric(pop_totals[2,c(4:12, 21, 20, 22)])
-pop_total_burgos <- c(sum(pop_totals[2,3:12]), pop_total_burgos)
-names <- c("(Intercept)", colnames(pop_totals[2,c(4:12, 21, 20, 22)]))
-names(pop_total_burgos) <- names
-
-wt_burgos <- compute_mult_wt(auxvars = c("sexo_edad", "tamuni"), svydata = cis, vector_calib_total = pop_total_burgos, svywt = "peso_estu")
+wt_vall <- compute_mult_wt(auxvars = c("sexo_edad", "recuerdo", "tamuni"), svydata = cis, vector_calib_total = pop_total_vall, svywt = "peso_estu")
 
 
+pop_total_vall <- as.numeric(pop_totals[8,c(4:12, 21, 20, 22)])
+pop_total_vall <- c(sum(pop_totals[8,3:12]), pop_total_vall)
+names <- c("(Intercept)", colnames(pop_totals[8,c(4:12, 21, 20, 22)]))
+names(pop_total_vall) <- names
 
-peso_burgos2 <- weights(wt_burgos$svy_des_wt)
-cis <- cbind(cis, peso_burgos2)
+wt_vall_socdem <- compute_mult_wt(auxvars = c("sexo_edad", "tamuni"), svydata = cis, vector_calib_total = pop_total_vall, svywt = "peso_estu")
 
-cis %>% frq(recuerdo)
-cis %>% frq(recuerdo, weights = peso_burgos)
+peso_vall_socdem <- weights(wt_vall_socdem$svy_des_wt)
+peso_vall <- weights(wt_vall$svy_des_wt)
 
-cis %>% frq(sexo_edad)
-cis %>% frq(voto, weights = peso_burgos2)
+cis <- cbind(cis, peso_vall_socdem)
+cis <- cbind(cis, peso_vall)
+
+cis %>% frq(sexo_edad, weights = peso_burgos_socdem)
 
 
 ```
@@ -431,7 +428,45 @@ cis %>% frq(voto, weights = peso_burgos2)
 
 ```{r Participacion electoral}
 frq(cis$tamuni)
+
 #LASSO
+library(glmnet)
+library(doParallel)
+
+threads <- detectCores()					
+cl <- makeCluster(threads-1)				
+registerDoParallel(cl)	
+
+cis <- cis %>% mutate(part = ifelse(voto == "No votaría", 0, 1))
+
+indep <- cis %>%  select(-estu, -voto, -id, -peso_estu, -sexo_edad, -peso_burgos, -peso_burgos2, -part, -starts_with("peso"))
+indep <- netCoin::dichotomize(indep, colnames(indep))
+indep <- as.matrix(select(indep, 44:187))
+dep <-  as.matrix(cis %>% select(part))
+wts <- as.numeric(cis$peso_burgos_socdem)
+
+
+cv_lasso1 <- cv.glmnet(indep, dep, weights = wts, family = "binomial", type.measure = "class", parallel = T, alpha = 1)
+cv_lasso5 <- cv.glmnet(indep, dep, weights = wts, family = "binomial", type.measure = "class", parallel = T, alpha = .5)
+cv_lasso0 <- cv.glmnet(indep, dep, weights = wts, family = "binomial", type.measure = "class", parallel = T, alpha = 0)
+
+##### plot comparing different levels of alpha in c.v. #####
+par(mfrow=c(2,2))
+plot(cv_lasso1);plot(cv_lasso5);plot(cv_lasso0)
+
+## predict lasso 
+lasso_part <- glmnet(indep, dep, weights = wts, family = "binomial", alpha = 1, lambda = cv_lasso1$lambda.1se)
+part_prob <- as.numeric(predict(lasso_part, type = "response", newx = indep))
+cis <- cbind(cis, part_prob)
+cis %>% group_by(part) %>% summarise(part_prob_mean = mean(part_prob))
+
+## ntiles prob
+cis <- cis %>%  mutate(part_ntiles = ntile(part_prob, 100))
+part_ntiles <- grattan::weighted_ntile(cis$part_prob, cis$peso_burgos_socdem, 100)
+cis <- cbind(cis, part_ntiles)
+cis %>% group_by(part_ntiles) %>% summarise(part_prob_mean = mean(part_prob))
+
+cis %>% filter(part_ntiles > 30 & voto != "No votaría") %>% frq(voto, weights = peso_vall_socdem, title = "VALLADOLID (70% part.)")
 
 ```
 
