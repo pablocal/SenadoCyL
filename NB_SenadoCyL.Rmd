@@ -20,6 +20,9 @@ cis_dic <- foreign::read.spss("data/3234.sav", to.data.frame = T ) %>%
 
 cis_ene <- foreign::read.spss("data/3238.sav", to.data.frame = T ) %>% 
                   filter(CCAA == "Castilla y León")
+
+cis_feb <- foreign::read.spss("data/3240.sav", to.data.frame = T ) %>% 
+                  filter(CCAA == "Castilla y León")
 ```
 
 Homologar los ficheros y combinarlos:
@@ -27,6 +30,7 @@ Homologar los ficheros y combinarlos:
 ```{r plan homologar datos}
 homo_datos <- data.frame(Diciembre = c("ESTU", "PROV", "TAMUNI", "P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8", "P901 a P903", "P901 a P903", "P901 a P903", "P901 a P903", "P1001 a P1003", "P1001 a P1003", "P1001 a P1003", "P1001 a P1003", "P11", "P11A", "P11B", "P11C", "RECUERDO", "ESTUDIOS", "ESTATUS", "CONDICION11", "VOTOSIMG", "P32", "P35", "P37", "P46 y P46a", "P43", "P44"),
                          Enero = c("ESTU", "PROV", "TAMUNI", "P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8",  "P901 a P903", "P901 a P903", "P901 a P903", "P901 a P903", "P1001 a P1003", "P1001 a P1003", "P1001 a P1003", "P1001 a P1003", "P11","P11A", "P11B", "P11C", "RECUERDO", "ESTUDIOS", "ESTATUS", "CONDICION11", "VOTOSIMG", "P15", "P30", "P32", "P46 y P46a", "P43", "P44"),
+                         Febrero = c("ESTU", "PROV", "TAMUNI", "P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8",  "P901 a P903", "P901 a P903", "P901 a P903", "P901 a P903", "P1001 a P1003", "P1001 a P1003", "P1001 a P1003", "P1001 a P1003", "P11","P11A", "P11B", "P11C", "RECUERDO", "ESTUDIOS", "ESTATUS", "CONDICION11", "VOTOSIMG", "P30", "P34", "P36", "P44 y P44a", "P41", "P42"),
                          Nombre_var_homolog = c("estu", "prov", "tamuni", "sit_eco",
 "sit_eco_retro", "sit_eco_pros", "sit_eco_pers", "sit_eco_pers_pros", "sit_pol",  "sit_pol_retro", "sit_pol_pros", "prob_esp_paro", "prob_esp_corrup", "prob_esp_indep", "prob_esp_pensi", "prob_pers_paro", "prob_pers_corrup",
 "prob_pers_indep", "prob_pers_pensi", "valora_gob", "valora_gob_pp", "valora_gob_cs", "valora_gob_up", "recuerdo", "estud", "estatus", "act_eco", "voto", "valorac_*", "org_est", "ideo", "relig", "sexo", "edad"),
@@ -49,6 +53,12 @@ cis_dic <- rename(cis_dic, estu = ESTU, prov = PROV, tamuni = TAMUNI, sit_eco = 
 ##1.2 CIS ene
 cis_ene <- rename(cis_ene, estu = ESTU, prov = PROV, tamuni = TAMUNI, sit_eco = P1, sit_eco_retro = P2, sit_eco_pros = P3, sit_eco_pers = P4, sit_eco_pers_pros = P5, sit_pol = P6, sit_pol_retro = P7, sit_pol_pros = P8, valora_gob = P11, valora_gob_pp = P11A, valora_gob_cs = P11B, valora_gob_up = P11C, recuerdo = RECUERDO, estud = ESTUDIOS, estatus = ESTATUS, act_eco = CONDICION11, voto = VOTOSIMG, ideo = P32, sexo = P43, edad = P44, org_est = P30, valorac_pabloC = P1505, valorac_pabloI = P1509, valorac_pedro = P1515, valorac_albert = P1514, valorac_albertoG = P1508)
 
+##1.3 CIS feb
+cis_feb <- cis_feb %>%  
+  select(-P46) %>% 
+  rename(estu = ESTU, prov = PROV, tamuni = TAMUNI, sit_eco = P1, sit_eco_retro = P2, sit_eco_pros = P3, sit_eco_pers = P4, sit_eco_pers_pros = P5, sit_pol = P6, sit_pol_retro = P7, sit_pol_pros = P8, valora_gob = P11, valora_gob_pp = P11A, valora_gob_cs = P11B, valora_gob_up = P11C, recuerdo = RECUERDO, estud = ESTUDIOS, estatus = ESTATUS, act_eco = CONDICION11, voto = VOTOSIMG, ideo = P36, sexo = P41, edad = P42, org_est = P34, valorac_pabloC = P3001, valorac_pabloI = P3003, valorac_pedro = P3005, valorac_albert = P3004, valorac_albertoG = P3002, P46 = P44, P46A = P44A)
+
+
 # 2. Vector de variables para seleccionar
 vars <- homo_datos$Nombre_var_homolog
 vars <- vars[-c(12:19, 29, 32)]
@@ -58,9 +68,11 @@ vars
 # 3. Seleccionar las vars
 cis_dic <- cis_dic %>% select(vars, starts_with("valorac_")) 
 cis_ene <- cis_ene %>% select(vars, starts_with("valorac_")) 
+cis_feb <- cis_feb %>% select(vars, starts_with("valorac_")) 
 
 # 4. Combinar ficheros
-cis <- rbind(cis_dic, cis_ene)
+cis <- rbind(cis_dic, cis_ene) %>% rbind(cis_feb)
+
 row.names(cis) <- rownames(cis)
 cis <- mutate(cis, id = rownames(cis))
 ```
@@ -138,9 +150,7 @@ table(cis$valora_gob, cis$valora_gob_mala)
 frq(cis[,c("valora_gob_pp", "valora_gob_up", "valora_gob_cs")])
 cis$valora_gob_pp <- as_factor(recode(cis$valora_gob_pp, "N.S." = "Igual", "N.C." = "Igual", .default = levels(cis$valora_gob_pp)))
 cis$valora_gob_cs <- as_factor(recode(cis$valora_gob_cs, "N.S." = "NSNC", "N.C." = "NSNC", .default = levels(cis$valora_gob_cs)))
-cis <- cis %>% mutate(valora_gob_up = ifelse(valora_gob_up == "Peor", 1, 0))
-frq(cis[,c("valora_gob_pp", "valora_gob_up", "valora_gob_cs")])
-
+cis$valora_gob_up <- as_factor(recode(cis$valora_gob_up, "N.S." = "NSNC", "N.C." = "NSNC", .default = levels(cis$valora_gob_up)))
 
 # recuerdo
 frq(cis$recuerdo)
@@ -224,9 +234,10 @@ Asignar pesos temporales, de forma que los datos de enero, al ser más recientes
 
 ```{r pesos temporales}
 frq(cis$estu)
-cis <- mutate(cis, peso_estu = case_when(estu == "3234" ~ .75,
-                                         estu == "3238" ~ 1.25))
-sum(cis$peso_estu) == nrow(cis)
+cis <- mutate(cis, peso_estu = case_when(estu == "3234" ~ .33,
+                                         estu == "3238" ~ 1,
+                                         estu == "3240" ~ 1.66))
+sum(cis$peso_estu)
 ```
 
 ## Imputaciones
@@ -252,8 +263,8 @@ test_recuerdo <- cis %>% filter(!id %in% train_recuerdo_id) %>% select(-estu, -p
 
 ## CV para encontrar mejor modelo
 # tuned_parameters <- tune.svm(recuerdo ~ ., data = train_recuerdo, gamma = 10^(-6:-1) , cost = 10^(-4:1))
-summary(tuned_parameters)
-tuned_parameters$best.model
+# summary(tuned_parameters)
+# tuned_parameters$best.model
 
 ## computar el SVM
 svm_recuerdo <- svm(recuerdo ~ ., data = train_recuerdo, 
@@ -285,7 +296,7 @@ frq(cis$recuerdo)
 Ahora viene la intención de voto:
 
 ```{r IV SVM imputacion}
-# Intención de voto de voto
+## Intención de voto de voto
 frq(cis$voto)
 
 ## Crear conjunto de entramiento y test
@@ -301,14 +312,14 @@ test_iv <- cis %>% filter(!id %in% train_iv_id) %>% select(-estu, -peso_estu, -p
 
 
 ## CV para encontrar mejor modelo
-tuned_parameters <- tune.svm(voto ~ ., data = train_iv, gamma = 10^(-6:-1), cost = 10^(-4:1))
-summary(tuned_parameters)
-tuned_parameters$best.model
+# tuned_parameters <- tune.svm(voto ~ ., data = train_iv, gamma = 10^(-6:-1), cost = 10^(-4:1))
+# summary(tuned_parameters)
+# tuned_parameters$best.model
 
 ## computar el SVM
 svm_iv <- svm(voto ~ ., data = train_iv, 
                     method = "C-classification", kernal = "radial", 
-                    gamma = .01, cost = 10)
+                    gamma = .001, cost = 10)
 
 summary(svm_iv)
 
@@ -343,7 +354,7 @@ Se trata de crear provincias ficticias calibrando por grupos de sexo y edad, dit
 admin <- readRDS("D:/Rproj/adminData/data/admin.rds") %>% select(cprov, cmun, nmun, pop, starts_with("d1_"), starts_with("d2_"), starts_with("d3_"), starts_with("j13_")) %>%  filter(cprov %in% c(5, 9, 24, 34, 37, 40, 42, 47, 49))
 
 # Sexo*edad + RV 2016
-pop_totals <- admin %>% rowwise() %>%  mutate(H1824 = (d2_4/5)*2 + d2_5,
+pop_totales <- admin %>% rowwise() %>%  mutate(H1824 = (d2_4/5)*2 + d2_5,
                                               H2534 = sum(d2_6, d2_7),
                                               H3549 = sum(d2_8, d2_9, d2_10),
                                               H5064 = sum(d2_11, d2_12, d2_13),
@@ -381,7 +392,7 @@ tamuni <- admin %>% rowwise() %>%  mutate(tamuni = case_when(pop <= 2000 ~ "Meno
   summarise_all(sum, na.rm = T) %>% 
   select(-cmun)
 
-pop_totals <- left_join(pop_totals, tamuni, by = "cprov")   
+pop_totales <- left_join(pop_totales, tamuni, by = "cprov")   
 
 ## sexo edad en muestra
 cis <- cis %>% mutate(sexo_edad =   case_when(edad_g == "Menos de 25" & sexo == "Hombre" ~ "H1824",
@@ -397,39 +408,21 @@ cis <- cis %>% mutate(sexo_edad =   case_when(edad_g == "Menos de 25" & sexo == 
 frq(cis$sexo_edad)
 
 ## Ponderar para cada provincia
+pop_totales <- pop_totales %>% summarise_all(sum) %>% rbind(pop_totales)
 
-pop_total_vall <- as.numeric(pop_totals[8,c(4:12, 14:18, 21, 20, 22)])
-pop_total_vall <- c(sum(pop_totals[8,3:12]), pop_total_vall)
-names <- c("(Intercept)", colnames(pop_totals[8,c(4:12, 14:18, 21, 20, 22)]))
-names(pop_total_vall) <- names
+data_loop <- pop_totales[1]
+data_loop$provname <- c("cyl", "avila", "burgos", "leon", "palencia", "salamanca", "segovia", "soria", "valladolid", "zamora")
 
-wt_vall <- compute_mult_wt(auxvars = c("sexo_edad", "recuerdo", "tamuni"), svydata = cis, vector_calib_total = pop_total_vall, svywt = "peso_estu")
-
-
-pop_total_vall <- as.numeric(pop_totals[8,c(4:12, 21, 20, 22)])
-pop_total_vall <- c(sum(pop_totals[8,3:12]), pop_total_vall)
-names <- c("(Intercept)", colnames(pop_totals[8,c(4:12, 21, 20, 22)]))
-names(pop_total_vall) <- names
-
-wt_vall_socdem <- compute_mult_wt(auxvars = c("sexo_edad", "tamuni"), svydata = cis, vector_calib_total = pop_total_vall, svywt = "peso_estu")
-
-peso_vall_socdem <- weights(wt_vall_socdem$svy_des_wt)
-peso_vall <- weights(wt_vall$svy_des_wt)
-
-cis <- cbind(cis, peso_vall_socdem)
-cis <- cbind(cis, peso_vall)
-
-cis %>% frq(sexo_edad, weights = peso_burgos_socdem)
-
+for(i in 1:10){
+  cis <- wt_estim(popdata = pop_totales, prov_code = as.numeric(data_loop[i, 1]), svydata = cis, prov =  data_loop[i, 2])
+}
 
 ```
 
 ## Participación
 
 ```{r Participacion electoral}
-frq(cis$tamuni)
-
-#LASSO
+#LASSO (it allows weights)
 library(glmnet)
 library(doParallel)
 
@@ -437,14 +430,13 @@ threads <- detectCores()
 cl <- makeCluster(threads-1)				
 registerDoParallel(cl)	
 
+# Prepare varialbe
 cis <- cis %>% mutate(part = ifelse(voto == "No votaría", 0, 1))
-
-indep <- cis %>%  select(-estu, -voto, -id, -peso_estu, -sexo_edad, -peso_burgos, -peso_burgos2, -part, -starts_with("peso"))
+indep <- cis %>%  select(-estu, -voto, -id, -peso_estu, -sexo_edad, -part, -starts_with("peso"))
 indep <- netCoin::dichotomize(indep, colnames(indep))
 indep <- as.matrix(select(indep, 44:187))
 dep <-  as.matrix(cis %>% select(part))
-wts <- as.numeric(cis$peso_burgos_socdem)
-
+wts <- as.numeric(cis$peso_socdem_cyl)
 
 cv_lasso1 <- cv.glmnet(indep, dep, weights = wts, family = "binomial", type.measure = "class", parallel = T, alpha = 1)
 cv_lasso5 <- cv.glmnet(indep, dep, weights = wts, family = "binomial", type.measure = "class", parallel = T, alpha = .5)
@@ -456,22 +448,42 @@ plot(cv_lasso1);plot(cv_lasso5);plot(cv_lasso0)
 
 ## predict lasso 
 lasso_part <- glmnet(indep, dep, weights = wts, family = "binomial", alpha = 1, lambda = cv_lasso1$lambda.1se)
+
 part_prob <- as.numeric(predict(lasso_part, type = "response", newx = indep))
 cis <- cbind(cis, part_prob)
 cis %>% group_by(part) %>% summarise(part_prob_mean = mean(part_prob))
 
 ## ntiles prob
-cis <- cis %>%  mutate(part_ntiles = ntile(part_prob, 100))
-part_ntiles <- grattan::weighted_ntile(cis$part_prob, cis$peso_burgos_socdem, 100)
+part_ntiles <- grattan::weighted_ntile(cis$part_prob, cis$peso_socdem_cyl, 100)
 cis <- cbind(cis, part_ntiles)
 cis %>% group_by(part_ntiles) %>% summarise(part_prob_mean = mean(part_prob))
-
-cis %>% filter(part_ntiles > 30 & voto != "No votaría") %>% frq(voto, weights = peso_vall_socdem, title = "VALLADOLID (70% part.)")
-
 ```
 
+## Estimación de voto
 
+```{r Estimación voto y escaños}
+pesos <- cis %>% 
+  select(-starts_with("peso_socdem")) %>% 
+  select(starts_with("peso"), -peso_estu) %>% 
+  colnames() 
 
-## Coeficiente correción senado
+data_loop <- data.frame(peso = pesos,
+                         seats = c(2, 3, 4, 4, 3, 4, 3, 2, 5, 3),
+                         stringsAsFactors = F)
+
+for(i in 1:10){
+est <- cis %>% 
+  filter(part_ntiles > 30 & voto != "No votaría") %>% 
+  frq(voto, weights = !! data_loop[i, 1])
+est <- est[[1]][1:6,1:2]
+seats <- seats_dhont(data = est, party = "val", votes = "frq", seats = data_loop[i, 2], barrier = 3)
+assign(data_loop[i, 1], seats)
+}
+
+peso_socdem_cyl
+peso_cyl
+sum(cis$peso_cyl)
+```
+
 
 
