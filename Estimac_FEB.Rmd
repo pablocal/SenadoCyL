@@ -1,5 +1,5 @@
 ---
-title: "Estimación senado CyL"
+title: "Estimación nacional FEB"
 output:
   html_document:
     df_print: paged
@@ -10,71 +10,25 @@ output:
 Abrir ficheros y seleccionar los casos correspondientes a CyL: 
 
 ```{r cargar datos}
+rm(list= ls())
 library(tidyverse)
 library(sjmisc)
 library(kableExtra)
 source("source/source.R")
 
-cis_dic <- foreign::read.spss("data/3234.sav", to.data.frame = T ) %>% 
-                  filter(CCAA == "Castilla y León")
-
-cis_ene <- foreign::read.spss("data/3238.sav", to.data.frame = T ) %>% 
-                  filter(CCAA == "Castilla y León")
-
-cis_feb <- foreign::read.spss("data/3240.sav", to.data.frame = T ) %>% 
-                  filter(CCAA == "Castilla y León")
+cis <- foreign::read.spss("data/3240.sav", to.data.frame = T )
 ```
-
-Homologar los ficheros y combinarlos:
-
-```{r plan homologar datos}
-homo_datos <- data.frame(Diciembre = c("ESTU", "PROV", "TAMUNI", "P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8", "P901 a P903", "P901 a P903", "P901 a P903", "P901 a P903", "P1001 a P1003", "P1001 a P1003", "P1001 a P1003", "P1001 a P1003", "P11", "P11A", "P11B", "P11C", "RECUERDO", "ESTUDIOS", "ESTATUS", "CONDICION11", "VOTOSIMG", "P32", "P35", "P37", "P46 y P46a", "P43", "P44"),
-                         Enero = c("ESTU", "PROV", "TAMUNI", "P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8",  "P901 a P903", "P901 a P903", "P901 a P903", "P901 a P903", "P1001 a P1003", "P1001 a P1003", "P1001 a P1003", "P1001 a P1003", "P11","P11A", "P11B", "P11C", "RECUERDO", "ESTUDIOS", "ESTATUS", "CONDICION11", "VOTOSIMG", "P15", "P30", "P32", "P46 y P46a", "P43", "P44"),
-                         Febrero = c("ESTU", "PROV", "TAMUNI", "P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8",  "P901 a P903", "P901 a P903", "P901 a P903", "P901 a P903", "P1001 a P1003", "P1001 a P1003", "P1001 a P1003", "P1001 a P1003", "P11","P11A", "P11B", "P11C", "RECUERDO", "ESTUDIOS", "ESTATUS", "CONDICION11", "VOTOSIMG", "P30", "P34", "P36", "P44 y P44a", "P41", "P42"),
-                         Nombre_var_homolog = c("estu", "prov", "tamuni", "sit_eco",
-"sit_eco_retro", "sit_eco_pros", "sit_eco_pers", "sit_eco_pers_pros", "sit_pol",  "sit_pol_retro", "sit_pol_pros", "prob_esp_paro", "prob_esp_corrup", "prob_esp_indep", "prob_esp_pensi", "prob_pers_paro", "prob_pers_corrup",
-"prob_pers_indep", "prob_pers_pensi", "valora_gob", "valora_gob_pp", "valora_gob_cs", "valora_gob_up", "recuerdo", "estud", "estatus", "act_eco", "voto", "valorac_*", "org_est", "ideo", "relig", "sexo", "edad"),
-  stringsAsFactors = F)
-
-kable(homo_datos) %>%
-  kable_styling(bootstrap_options = c("striped", "hover"))
-
-```
-
 
 
 ```{r homologar datos}
 
 # 1. Renombrar
 
-## 1.1 CIS dic
-cis_dic <- rename(cis_dic, estu = ESTU, prov = PROV, tamuni = TAMUNI, sit_eco = P1, sit_eco_retro = P2, sit_eco_pros = P3, sit_eco_pers = P4, sit_eco_pers_pros = P5, sit_pol = P6, sit_pol_retro = P7, sit_pol_pros = P8, valora_gob = P11, valora_gob_pp = P11A, valora_gob_cs = P11B, valora_gob_up = P11C, recuerdo = RECUERDO, estud = ESTUDIOS, estatus = ESTATUS, act_eco = CONDICION11, voto = VOTOSIMG, ideo = P37, sexo = P43, edad = P44, org_est = P35, valorac_pabloC = P3201, valorac_pabloI = P3203, valorac_pedro = P3205, valorac_albert = P3204, valorac_albertoG = P3202)
-
-##1.2 CIS ene
-cis_ene <- rename(cis_ene, estu = ESTU, prov = PROV, tamuni = TAMUNI, sit_eco = P1, sit_eco_retro = P2, sit_eco_pros = P3, sit_eco_pers = P4, sit_eco_pers_pros = P5, sit_pol = P6, sit_pol_retro = P7, sit_pol_pros = P8, valora_gob = P11, valora_gob_pp = P11A, valora_gob_cs = P11B, valora_gob_up = P11C, recuerdo = RECUERDO, estud = ESTUDIOS, estatus = ESTATUS, act_eco = CONDICION11, voto = VOTOSIMG, ideo = P32, sexo = P43, edad = P44, org_est = P30, valorac_pabloC = P1505, valorac_pabloI = P1509, valorac_pedro = P1515, valorac_albert = P1514, valorac_albertoG = P1508)
-
 ##1.3 CIS feb
-cis_feb <- cis_feb %>%  
+cis <- cis %>%  
   select(-P46) %>% 
   rename(estu = ESTU, prov = PROV, tamuni = TAMUNI, sit_eco = P1, sit_eco_retro = P2, sit_eco_pros = P3, sit_eco_pers = P4, sit_eco_pers_pros = P5, sit_pol = P6, sit_pol_retro = P7, sit_pol_pros = P8, valora_gob = P11, valora_gob_pp = P11A, valora_gob_cs = P11B, valora_gob_up = P11C, recuerdo = RECUERDO, estud = ESTUDIOS, estatus = ESTATUS, act_eco = CONDICION11, voto = VOTOSIMG, ideo = P36, sexo = P41, edad = P42, org_est = P34, valorac_pabloC = P3001, valorac_pabloI = P3003, valorac_pedro = P3005, valorac_albert = P3004, valorac_albertoG = P3002, P46 = P44, P46A = P44A)
 
-
-# 2. Vector de variables para seleccionar
-vars <- homo_datos$Nombre_var_homolog
-vars <- vars[-c(12:19, 29, 32)]
-vars <-  c(vars, "P46", "P46A", "P901", "P902", "P903", "P1001", "P1002", "P1003")
-vars
-
-# 3. Seleccionar las vars
-cis_dic <- cis_dic %>% select(vars, starts_with("valorac_")) 
-cis_ene <- cis_ene %>% select(vars, starts_with("valorac_")) 
-cis_feb <- cis_feb %>% select(vars, starts_with("valorac_")) 
-
-# 4. Combinar ficheros
-cis <- rbind(cis_dic, cis_ene) %>% rbind(cis_feb)
-
-row.names(cis) <- rownames(cis)
-cis <- mutate(cis, id = rownames(cis))
 ```
 
 Transoformar las variables y preparar perdidos. Variables con casos perdidos por debajo del 10% imputar moda; a partir del 10% crear categoría propia.
@@ -82,7 +36,7 @@ Transoformar las variables y preparar perdidos. Variables con casos perdidos por
 ```{r combinar ficheros}
 # sit_eco
 frq(cis$sit_eco)
-cis$sit_eco_mala <- recode(cis$sit_eco, "Mala" = 1, "Muy mala" = 1, .default = 0)
+cis$sit_eco_mala <- recode(cis$sit_eco, "Mala" = 1, "Muy mala" = 1, "Regular" = 2, "Buena" = 3, "Muy buena" = 3, .default = 2)
 table(cis$sit_eco, cis$sit_eco_mala)
 
 # sit_eco_retro
@@ -97,7 +51,7 @@ frq(cis$sit_eco_pros)
 
 # sit_eco_pers
 frq(cis$sit_eco_pers)
-cis$sit_eco_pers_mala <- recode(cis$sit_eco_pers, "Mala" = 1, "Muy mala" = 1, .default = 0)
+cis$sit_eco_pers_mala <- recode(cis$sit_eco_pers, "Mala" = 1, "Muy mala" = 1, "Regular" = 2, "Buena" = 3, "Muy buena" = 3, .default = 2)
 table(cis$sit_eco_pers, cis$sit_eco_pers_mala)
 
 # sit_eco_pers_pros
@@ -107,7 +61,7 @@ frq(cis$sit_eco_pers_pros)
 
 # sit_pol
 frq(cis$sit_pol)
-cis$sit_pol_mala <- recode(cis$sit_pol, "Mala" = 1, "Muy mala" = 1, .default = 0)
+cis$sit_pol_mala <- recode(cis$sit_pol, "Mala" = 1, "Muy mala" = 1, "Regular" = 2, "Buena" = 3, "Muy buena" = 3, .default = 2)
 table(cis$sit_pol, cis$sit_pol_mala)
 
 # sit_pol_retro
@@ -128,7 +82,8 @@ frq(cis$sit_pol_pros)
 
 levels(cis$P901)
 
-cis <- cis %>% mutate(prob_esp_paro = ifelse(P901 %in% c("El paro", "Los problemas de índole económica", "Los problemas relacionados con la calidad del empleo") | P902 %in% c("El paro", "Los problemas de índole económica", "Los problemas relacionados con la calidad del empleo")| P903 %in% c("El paro", "Los problemas de índole económica", "Los problemas relacionados con la calidad del empleo"), 1, 0),
+cis <- cis %>% 
+  mutate(prob_esp_paro = ifelse(P901 %in% c("El paro", "Los problemas de índole económica", "Los problemas relacionados con la calidad del empleo") | P902 %in% c("El paro", "Los problemas de índole económica", "Los problemas relacionados con la calidad del empleo")| P903 %in% c("El paro", "Los problemas de índole económica", "Los problemas relacionados con la calidad del empleo"), 1, 0),
                       prob_esp_corrup = ifelse(P901 %in% c("La corrupción y el fraude", "Los/as políticos/as en general, los partidos y la política", "El Gobierno y partidos o políticos/as concretos/as") | P902 %in% c("La corrupción y el fraude", "Los/as políticos/as en general, los partidos y la política", "El Gobierno y partidos o políticos/as concretos/as") | P903 %in% c("La corrupción y el fraude", "Los/as políticos/as en general, los partidos y la política", "El Gobierno y partidos o políticos/as concretos/as"), 1, 0),
                       prob_esp_inmig = ifelse(P901 == "La inmigración" | P902 == "La inmigración" | P903 == "La inmigración", 1, 0),
                       prob_esp_pensi = ifelse(P901 == "Las pensiones" | P902 == "Las pensiones" | P903 == "Las pensiones", 1, 0),
@@ -139,11 +94,13 @@ cis <- cis %>% mutate(prob_esp_paro = ifelse(P901 %in% c("El paro", "Los problem
                       prob_pers_pensi = ifelse(P1001 == "Las pensiones" | P1002 == "Las pensiones" | P1003 == "Las pensiones", 1, 0),
                       prob_pers_indep = ifelse(P1001 == "Independencia de Cataluña" | P1002 == "Independencia de Cataluña" | P1003 == "Independencia de Cataluña", 1, 0))
 
-cis %>% select(starts_with("prob_")) %>% frq()
+cis %>% 
+  select(starts_with("prob_")) %>% 
+  frq()
 
 # valora_gob
 frq(cis$valora_gob)
-cis$valora_gob_mala <- recode(cis$valora_gob, "Mala" = 1, "Muy mala" = 1, .default = 0)
+cis$valora_gob_mala <- recode(cis$valora_gob, "Mala" = 1, "Muy mala" = 1, "Regular" = 2, "Buena" = 3, "Muy buena" = 3, .default = 2)
 table(cis$valora_gob, cis$valora_gob_mala)
 
 # valora_gob_pp - valora_gob_cs
@@ -155,7 +112,26 @@ cis$valora_gob_up <- as_factor(recode(cis$valora_gob_up, "N.S." = "NSNC", "N.C."
 # recuerdo
 frq(cis$recuerdo)
 levels(cis$recuerdo)
-cis$recuerdo <- recode(cis$recuerdo, "PP" = "PP", "PSOE" = "PSOE", "Unidos Podemos" = "UP", "En Comú Podem" = "UP", "C's" = "Cs",  "No tenía edad" = "No voto", "No votó" = "No voto", "No recuerda" = NA_character_, "N.C." = NA_character_, .default = "Otros")
+cis$rec <- recode(cis$recuerdo, "PP" = "PP", 
+                       "PSOE" = "PSOE", 
+                       "Unidos Podemos" = "UP", "En Comú Podem" = "UP", "En Marea" = "UP",  "Compromís-Podemos-EUPV" = "UP",
+                       "C's" = "Cs",
+                       "ERC" = "ERC",
+                       "EAJ-PNV" = "PNV",
+                       "EH Bildu" = "Bildu",
+                       "CC-PNC" = "CC",
+                       "CDC" = "PdeCat",
+                       "Voto nulo" = "NuloBlanco",
+                       "En blanco" = "NuloBlanco",
+                       "No votó" = "Abstenc",
+                       "No tenía edad" = "Abstenc" ,
+                       "No tenía derecho a voto" = "Abstenc", 
+                       "No recuerda" = NA_character_, 
+                       "N.C." = NA_character_, 
+                       .default = "Otros")
+
+table(cis$recuerdo, cis$rec)
+
 
 # estudios
 frq(cis$estud)
@@ -223,7 +199,6 @@ table(cis$edad, cis$edad_g)
 
 # tamuni
 frq(cis$tamuni)
-cis$tamuni <- recode(cis$tamuni, "50.001 a 100.000 habitantes" = "Más de 50.000 habitantes", "100.001 a 400.000 habitantes" = "Más de 50.000 habitantes", "400.001 a 1.000.000 habitantes" = NA_character_, "Más de 1.000.000 habitantes" = NA_character_, .default = levels(cis$tamuni))
 
 # clean dataset
 cis <- select(cis, -act_eco, -edad, -P46, -P46A, -starts_with("P90"), -starts_with("P10"), -valora_gob)
@@ -351,9 +326,7 @@ Se trata de crear provincias ficticias calibrando por grupos de sexo y edad, dit
 
 ```{r Ponderacion}
 # Datos admin 
-admin <- readRDS("D:/Rproj/adminData/data/admin.rds") %>% 
-  select(cprov, cmun, nmun, pop, starts_with("d1_"), starts_with("d2_"), starts_with("d3_"), starts_with("j13_")) %>%  
-  filter(cprov %in% c(5, 9, 24, 34, 37, 40, 42, 47, 49))
+admin <- readRDS("D:/Rproj/adminData/data/admin.rds") %>% select(cprov, cmun, nmun, pop, starts_with("d1_"), starts_with("d2_"), starts_with("d3_"), starts_with("j13_")) %>%  filter(cprov %in% c(5, 9, 24, 34, 37, 40, 42, 47, 49))
 
 # Sexo*edad + RV 2016
 pop_totales <- admin %>% rowwise() %>%  mutate(H1824 = (d2_4/5)*2 + d2_5,
